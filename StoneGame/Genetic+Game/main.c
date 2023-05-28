@@ -17,13 +17,14 @@ int main()
 
     char board[BOARD_SIZE][BOARD_SIZE];
     int win = 0;
-    int n_pop = 50;
+    int n_pop = 100;
     int gens_len = 9;
     float retain_count = 0.5;
     float c_rate = 0.1;
     float m_rate = 0.1;
     int generation = 0;
-    int max_generation = 10;
+    int max_generation = 100;
+    int matches = 3;
 
     Genetic *genetic = create_genetic(n_pop, gens_len, retain_count, c_rate, m_rate);
     Player *players = malloc(n_pop * sizeof(Player));
@@ -49,11 +50,19 @@ int main()
 
         for (int i = 0; i < n_pop - 1; i++)
         {
-            make_player(&genetic->population[i], board);
-            make_player(&genetic->population[i + 1], board);
+            for (int j = 0; j < matches; j++)
+            {
+                make_player(&genetic->population[i], board);
+                make_player(&genetic->population[i + 1], board);
 
-            update_genes(gens_len, &genetic->population[i]);
-            update_genes(gens_len, &genetic->population[i + 1]);
+                update_genes(gens_len, &genetic->population[i]);
+                update_genes(gens_len, &genetic->population[i + 1]);
+            }
+
+            if (i == n_pop - 2 && generation == max_generation - 1)
+            {
+                show_board(board);
+            }
         }
         
         genetic->evolve(genetic);
@@ -131,7 +140,7 @@ void make_move(char board[BOARD_SIZE][BOARD_SIZE], int row, int col, int targetR
         int stepY = distanceY / abs(distanceY);
         int stepX = distanceX / abs(distanceX);
 
-        for (int y = col + stepY; y < targetCol || y > targetCol; y += stepY)
+        for (int y = col + stepY; y != targetCol; y += stepY)
         {
             if (board[y][row + stepX] == '*')
             {
