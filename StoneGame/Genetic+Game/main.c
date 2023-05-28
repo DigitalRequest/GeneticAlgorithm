@@ -6,10 +6,9 @@
 #define BOARD_SIZE 8
 
 void show_board(char board[BOARD_SIZE][BOARD_SIZE]);
-void make_move(char board[BOARD_SIZE][BOARD_SIZE], int row, int col, int targetRow, int targetCol, Player *player);
+void make_move(char board[BOARD_SIZE][BOARD_SIZE], int row, int col, int targetRow, int targetCol, int distanceX, int distanceY, Player *player);
 void make_board(char board[BOARD_SIZE][BOARD_SIZE]);
 void make_player(Player *player, char board[BOARD_SIZE][BOARD_SIZE]);
-void update_genes(int gens_len, Player *player);
 
 int main()
 {
@@ -17,21 +16,19 @@ int main()
 
     char board[BOARD_SIZE][BOARD_SIZE];
     int win = 0;
-    int n_pop = 100;
+    int n_pop = 300;
     int gens_len = 9;
-    float retain_count = 0.5;
+    float retain_count = 0.3;
     float c_rate = 0.1;
     float m_rate = 0.1;
     int generation = 0;
-    int max_generation = 100;
-    int matches = 3;
+    int max_generation = 10000;
+    int matches = 20;
 
     Genetic *genetic = create_genetic(n_pop, gens_len, retain_count, c_rate, m_rate);
     Player *players = malloc(n_pop * sizeof(Player));
 
     genetic->init_pop(genetic, players);
-
-    make_board(board);
 
     while (generation < max_generation)
     {
@@ -50,33 +47,28 @@ int main()
 
         for (int i = 0; i < n_pop - 1; i++)
         {
+            make_board(board);
             for (int j = 0; j < matches; j++)
             {
                 make_player(&genetic->population[i], board);
                 make_player(&genetic->population[i + 1], board);
-
-                update_genes(gens_len, &genetic->population[i]);
-                update_genes(gens_len, &genetic->population[i + 1]);
-            }
-
-            if (i == n_pop - 2 && generation == max_generation - 1)
-            {
-                show_board(board);
             }
         }
-        
+
+        int points = 0;
+        for (int i = 0; i < n_pop; i++)
+        {
+            points += genetic->population[i].points;
+        }
+
+        printf("Mean of points of generation %d: %d\n", generation + 1, points / n_pop);
+
         genetic->evolve(genetic);
 
         generation += 1;
     }
-}
 
-void update_genes(int gens_len, Player *player)
-{
-    for (int j = 0; j < gens_len; j++)
-    {
-        player->genes[j] = (rand() / (double)RAND_MAX) * 2;
-    }
+    show_board(board);
 }
 
 void make_board(char board[BOARD_SIZE][BOARD_SIZE])
@@ -113,42 +105,49 @@ void show_board(char board[BOARD_SIZE][BOARD_SIZE])
 
 void make_player(Player *player, char board[BOARD_SIZE][BOARD_SIZE])
 {
-    int stoneRow = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[0], BOARD_SIZE - 1));
-    int stoneCol = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[1], BOARD_SIZE - 1));
-    int targetRow = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[2] * player->genes[4], BOARD_SIZE - 1));
-    int targetCol = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[3] * player->genes[5], BOARD_SIZE - 1));
+    int stoneRow  = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[0]);
+    int stoneCol  = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[1]);
+    int targetRow = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[2]);
+    int targetCol = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[3]);
 
-    while (stoneRow == targetRow && stoneCol == targetCol)
+    int distanceX = targetRow - stoneRow;
+    int distanceY = targetCol - stoneCol;
+
+    while (board[stoneCol][stoneRow] == '-' && board[targetCol][targetRow] == '*' && abs(distanceX) != abs(distanceY))
     {
-        player->genes[8] = (rand() / (double)RAND_MAX) * 2;
-        stoneRow = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[0], BOARD_SIZE - 1));
-        stoneCol = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[1], BOARD_SIZE - 1));
-        targetRow = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[2] * player->genes[4], BOARD_SIZE - 1));
-        targetCol = (int)fmax(0, fmin((BOARD_SIZE - 1) * player->genes[8] * player->genes[3] * player->genes[5], BOARD_SIZE - 1));
+        player->genes[8] = (rand() / (double)RAND_MAX);
+        stoneRow = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[0]);
+        stoneCol = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[1]);
+        targetRow = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[2]);
+        targetCol = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[3]);
+
+        distanceX = targetRow - stoneRow;
+        distanceY = targetCol - stoneCol;
     }
 
-    make_move(board, stoneRow, stoneCol, targetRow, targetCol, player);
+    make_move(board, stoneRow, stoneCol, targetRow, targetCol, distanceX, distanceY, player);
 }
 
-void make_move(char board[BOARD_SIZE][BOARD_SIZE], int row, int col, int targetRow, int targetCol, Player *player)
+void make_move(char board[BOARD_SIZE][BOARD_SIZE], int row, int col, int targetRow, int targetCol, int distanceX, int distanceY, Player *player)
 {
-    int distanceX = targetRow - row;
-    int distanceY = targetCol - col;
+    int stepX, stepY;
+    if (distanceY < 0)
+        stepY = -1;
+    else
+        stepY = 1;
+    if (distanceX < 0)
+        stepX = -1;
+    else
+        stepX = 1;
 
-    if (abs(distanceX) == abs(distanceY))
+    for (int y = col + stepY; (distanceY < 0) ? (y > targetCol) : (y < targetCol); y += stepY)
     {
-        int stepY = distanceY / abs(distanceY);
-        int stepX = distanceX / abs(distanceX);
-
-        for (int y = col + stepY; y != targetCol; y += stepY)
+        if (board[y][row + stepX] == '*')
         {
-            if (board[y][row + stepX] == '*')
-            {
-                player->points += 1;
-                board[y][row + stepX] = '-';
-            }
-            stepX += distanceX / abs(distanceX);
+            player->points += 1;
+            board[y][row + stepX] = '-';
         }
+        stepX += (distanceX < 0) ? -1 : 1;
     }
 
     board[targetCol][targetRow] = '*';

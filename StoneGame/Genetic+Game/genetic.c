@@ -17,7 +17,7 @@ void init_pop(Genetic *genetic, Player *player)
         genetic->population[i].points = player[i].points;
         for (int j = 0; j < genetic->gens_len; j++)
         {
-            player[i].genes[j] = (rand() / (double)RAND_MAX) * 2;
+            player[i].genes[j] = (rand() / (double)RAND_MAX);
             genetic->population[i].genes[j] = player[i].genes[j];
         }
     }
@@ -57,15 +57,12 @@ double **crossover(Genetic *genetic, double *parent1, double *parent2)
         child2[i] = parent2[i];
     }
 
-    if ((float)rand() / RAND_MAX < genetic->c_rate)
+    int point = rand() % (genetic->gens_len - 1) + 1;
+    for (int i = point; i < genetic->gens_len; i++)
     {
-        int point = rand() % (genetic->gens_len - 1) + 1;
-        for (int i = point; i < genetic->gens_len; i++)
-        {
-            double temp = child1[i];
-            child1[i] = child2[i];
-            child2[i] = temp;
-        }
+        double temp = child1[i];
+        child1[i] = child2[i];
+        child2[i] = temp;
     }
 
     double **childrens = malloc(2 * sizeof(double *));
@@ -84,32 +81,41 @@ double *mutation(Genetic *genetic, double *child)
 void evolve(Genetic *genetic)
 {
     genetic->calc_scores(genetic);
-    double *parent1 = genetic->selection(genetic);
-    double *parent2 = genetic->selection(genetic);
-    double **children = genetic->crossover(genetic, parent1, parent2);
 
     int retain_perc = (int)(genetic->retain_count * genetic->n_pop);
     for (int i = retain_perc; i < genetic->n_pop; i++)
     {
-        int choice = rand() % 2;
-        if (choice == 0)
+        if ((float)rand() / RAND_MAX < genetic->c_rate)
         {
-            for (int j = 0; j < genetic->gens_len; j++)
+            double *parent1 = genetic->selection(genetic);
+            double *parent2 = genetic->selection(genetic);
+            double **children = genetic->crossover(genetic, parent1, parent2);
+
+            int choice = rand() % 2;
+            if (choice == 0)
             {
-                genetic->population[i].genes[j] = children[0][j];
+                for (int j = 0; j < genetic->gens_len; j++)
+                {
+                    genetic->population[i].genes[j] = children[0][j];
+                }
             }
-        }
-        else
-        {
-            for (int j = 0; j < genetic->gens_len; j++)
+            else
             {
-                genetic->population[i].genes[j] = children[1][j];
+                for (int j = 0; j < genetic->gens_len; j++)
+                {
+                    genetic->population[i].genes[j] = children[1][j];
+                }
             }
         }
     }
+
+    for (int i = 0; i < genetic->n_pop; i++)
+    {
+        genetic->population[i].points = 0;
+    }
 }
 
-Genetic *create_genetic(int n_pop, int genes_len, float retain_count,  float c_rate, float m_rate)
+Genetic *create_genetic(int n_pop, int genes_len, float retain_count, float c_rate, float m_rate)
 {
     Genetic *genetic = malloc(sizeof(Genetic));
     genetic->n_pop = n_pop;
