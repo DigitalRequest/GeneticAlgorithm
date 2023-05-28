@@ -14,16 +14,17 @@ int main()
 {
     srand(time(NULL));
 
+    FILE *file;
     char board[BOARD_SIZE][BOARD_SIZE];
     int win = 0;
-    int n_pop = 300;
+    int n_pop = 100;
     int gens_len = 9;
-    float retain_count = 0.3;
+    float retain_count = 0.2;
     float c_rate = 0.1;
     float m_rate = 0.1;
     int generation = 0;
-    int max_generation = 10000;
-    int matches = 20;
+    int max_generation = 100;
+    int matches = 50;
 
     Genetic *genetic = create_genetic(n_pop, gens_len, retain_count, c_rate, m_rate);
     Player *players = malloc(n_pop * sizeof(Player));
@@ -45,7 +46,7 @@ int main()
                 Gene9:  Randomness
         */
 
-        for (int i = 0; i < n_pop - 1; i++)
+        for (int i = 0; i < n_pop - 1; i += 2)
         {
             make_board(board);
             for (int j = 0; j < matches; j++)
@@ -69,6 +70,13 @@ int main()
     }
 
     show_board(board);
+
+    file = fopen("genes.json", "w");
+    for (int i = 0; i < gens_len; i++)
+    {
+        fprintf(file, "%lf ", genetic->population[n_pop - 1].genes[i]);
+    }
+    fclose(file);
 }
 
 void make_board(char board[BOARD_SIZE][BOARD_SIZE])
@@ -105,15 +113,17 @@ void show_board(char board[BOARD_SIZE][BOARD_SIZE])
 
 void make_player(Player *player, char board[BOARD_SIZE][BOARD_SIZE])
 {
-    int stoneRow  = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[0]);
-    int stoneCol  = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[1]);
+    player->genes[8] = (rand() / (double)RAND_MAX);
+    int stoneRow = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[0]);
+    int stoneCol = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[1]);
     int targetRow = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[2]);
     int targetCol = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[3]);
 
     int distanceX = targetRow - stoneRow;
     int distanceY = targetCol - stoneCol;
 
-    while (board[stoneCol][stoneRow] == '-' && board[targetCol][targetRow] == '*' && abs(distanceX) != abs(distanceY))
+    int getter = 0;
+    while (board[stoneCol][stoneRow] == '-' || board[targetCol][targetRow] == '*')
     {
         player->genes[8] = (rand() / (double)RAND_MAX);
         stoneRow = (int)((BOARD_SIZE - 1) * player->genes[8] * player->genes[0]);
@@ -123,6 +133,16 @@ void make_player(Player *player, char board[BOARD_SIZE][BOARD_SIZE])
 
         distanceX = targetRow - stoneRow;
         distanceY = targetCol - stoneCol;
+
+        if (getter > 10)
+        {
+            stoneRow = rand() % BOARD_SIZE;
+            stoneCol = rand() % BOARD_SIZE;
+            targetRow = rand() % BOARD_SIZE;
+            targetCol = rand() % BOARD_SIZE;
+        }
+
+        getter += 1;
     }
 
     make_move(board, stoneRow, stoneCol, targetRow, targetCol, distanceX, distanceY, player);
@@ -140,14 +160,17 @@ void make_move(char board[BOARD_SIZE][BOARD_SIZE], int row, int col, int targetR
     else
         stepX = 1;
 
-    for (int y = col + stepY; (distanceY < 0) ? (y > targetCol) : (y < targetCol); y += stepY)
+    if (abs(distanceX) == abs(distanceY))
     {
-        if (board[y][row + stepX] == '*')
+        for (int y = col + stepY; (distanceY < 0) ? (y > targetCol) : (y < targetCol); y += stepY)
         {
-            player->points += 1;
-            board[y][row + stepX] = '-';
+            if (board[y][row + stepX] == '*')
+            {
+                player->points += 1;
+                board[y][row + stepX] = '-';
+            }
+            stepX += (distanceX < 0) ? -1 : 1;
         }
-        stepX += (distanceX < 0) ? -1 : 1;
     }
 
     board[targetCol][targetRow] = '*';
